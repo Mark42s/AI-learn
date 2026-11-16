@@ -10,7 +10,7 @@ uv run python -m log_analyzer sample.log
 uv run log-analyzer sample.log
 ```
 
-预期：`stats` 为 `total=6 / ok=4 / skipped=2`，`entries` 是 4 个结构化 dict。`sample.log` 里第 5 行 `retry=99` 越过 `Field(le=10)`、第 6 行 `DEBUG` 不在 `Severity` 里，这两行被校验拦下并计入 `skipped`。
+预期：`stats` 为 `total=8 / ok=6 / skipped=2`，`entries` 是 6 个结构化 dict，每条都带 `event`（LINK/NEIGHBOR/STATE）。`sample.log` 里第 5 行 `retry=99` 越过 `Field(le=10)`、第 6 行 `DEBUG` 不在 `Severity` 里，这两行被校验拦下并计入 `skipped`。
 
 ## 文件分工
 
@@ -18,7 +18,7 @@ uv run log-analyzer sample.log
 |---|---|---|
 | `models.py` | dataclass / pydantic | `RawLine`、`ParseStats` 管内部数据；`LogEntry` 守外部边界 |
 | `parser.py` | 类型注解 | 正则切字段 → `model_validate` → `model_dump(mode="json")` |
-| `sample.log` | — | 4 条合法 + 2 条故意非法，用来观察校验拦截 |
+| `sample.log` | — | 6 条合法 + 2 条故意非法，用来观察校验拦截 |
 
 ## 边界原则
 

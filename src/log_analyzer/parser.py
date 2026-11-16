@@ -8,10 +8,11 @@ from pydantic import ValidationError
 
 from .models import LogEntry, ParseStats, RawLine
 
-# 固定前缀：<ISO时间> <级别> <主机> <模块>，其后是 key=value 与自由文本
+# 固定前缀：<ISO时间> <级别> <主机> <模块> <事件类型>，其后是 key=value 与自由文本
+# event 这里只做切分（\S+ 抓一个词），取值合不合法交给 models.Event 的 Literal 由 pydantic 拦
 _HEAD = re.compile(
     r"^(?P<ts>\S+)\s+(?P<severity>INFO|WARN|ERROR)\s+"
-    r"(?P<host>\S+)\s+(?P<facility>\S+)\s+(?P<rest>.*)$"
+    r"(?P<host>\S+)\s+(?P<facility>\S+)\s+(?P<event>\S+)\s+(?P<rest>.*)$"
 )
 _KV = re.compile(r"(?P<key>port|retry)=(?P<value>\S+)")
 
@@ -44,7 +45,13 @@ def parse_line(raw: RawLine) -> LogEntry | None:
     """
     try:
         return LogEntry.model_validate(_split(raw.text))
-    except (ValueError, ValidationError):
+    except ValidationError as e:
+        # 校验没过：e.errors() 指出哪个字段、违反哪条规则
+        print(f"第 {raw.lineno} 行校验失败:", e.errors())
+        return None
+    except ValueError as e:
+        # 正则切分没过：连前缀格式都不对
+        print(f"第 {raw.lineno} 行格式不符:", e)
         return None
 
 
