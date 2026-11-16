@@ -1,0 +1,8 @@
+2026-11-16T09:12:33 INFO sw-core-01 STP port=ge-0/0/3 retry=0 state DISCARDING -> FORWARDING
+2026-11-16T09:12:35 WARN sw-core-01 STP port=ge-0/0/3 retry=3 topology change detected, TCN flood
+2026-11-16T09:13:02 ERROR sw-core-01 OSPF retry=2 neighbor 10.0.0.2 down, dead timer expired
+2026-11-16T09:14:10 INFO sw-core-02 LACP port=ae0 link aggregated, member up
+2026-11-16T09:15:00 ERROR sw-core-01 STP port=ge-0/0/3 retry=99 excessive retries detected
+2026-11-16T09:15:01 DEBUG sw-core-01 STP port=ge-0/0/3 unknown severity level
+2026-11-16T09:16:01 ERROR sw-core-01 STP port=ge-0/0/3 unknown severity level LINK
+2026-11-16T09:17:01 ERROR sw-core-01 STP port=ge-0/0/3 unknown severity level NEIGHBOR
