@@ -17,14 +17,14 @@ def main() -> None:
     else:
         path = Path(__file__).resolve().parents[2] / DEFAULT_LOG
 
-    entries, stats = parse_file(path)
-    print(
-        json.dumps(
-            {"stats": stats.to_dict(), "entries": entries},
-            ensure_ascii=False,
-            indent=2,
-        )
-    )
+    try:
+        result = parse_file(path)
+    except (FileNotFoundError, ValueError, TypeError) as e:
+        # 库层抛异常，CLI 层翻译成人话 + 非零退出码
+        print(f"参数错误: {e}", file=sys.stderr)
+        raise SystemExit(2) from e
+
+    print(json.dumps(result.to_dict(), ensure_ascii=False, indent=2))
 
 
 __all__ = ["main"]

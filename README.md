@@ -22,4 +22,20 @@ uv run log-analyzer sample.log
 
 ## 边界原则
 
-外部数据（日志、模型输出、HTTP 请求）进来的那一下必须过 pydantic；内部中间结果用 dataclass 就够。`model_json_schema()` 是 D6 结构化输出和 D7 function calling 的骨架，今天先把 `LogEntry` 写熟。
+外部数据（日志、模型输出、HTTP 请求）进来的那一下必须过 pydantic；内部中间结果用 dataclass 就够。`model_json_schema()` 是 D6 结构化输出和 D7 function calling 的骨架。
+
+---
+
+## D3：质量习惯（在当前版本上）
+
+```powershell
+uv run pytest -q                            # 10 passed
+uv run python -m log_analyzer sample.log    # stats + entries + issues
+uv run python -m log_analyzer nope.log      # 参数错误 → exit 2
+```
+
+改动：`errors.py` 新增 `ParseIssue` / `ParseResult`，坏行不再 `print`，而是返回**结构化错误**（`lineno / kind / field / message / raw`），可序列化、可断言、可回填给模型（摸底卷 B1 追问）。`parser.py` 加了 `_validate_path` 参数校验；CLI 把参数异常翻译成人话 + 退出码 2。
+
+三层分流：**调用方错误 → raise 快速失败｜数据错误 → ParseIssue｜IO 错误 → CLI 翻译**。
+
+`tests/test_parser.py` 的 10 个单测覆盖正常路径、类型转换、两类错误与端到端计数，用到了 `pytest.raises`、`@pytest.fixture` 和内置 `tmp_path`。讲义见 `F:\dev\outputs\D3-质量习惯与pytest.md`。

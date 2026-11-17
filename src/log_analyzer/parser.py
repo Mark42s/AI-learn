@@ -6,6 +6,7 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
+from .errors import ParseIssue, ParseResult
 from .models import LogEntry, ParseStats, RawLine
 
 # 固定前缀：<ISO时间> <级别> <主机> <模块> <事件类型>，其后是 key=value 与自由文本
@@ -21,7 +22,7 @@ def _split(line: str) -> dict[str, str]:
     """纯文本 → 字段字典。这里只做切分，校验交给 pydantic。"""
     m = _HEAD.match(line.strip())
     if m is None:
-        raise ValueError("前缀不符：应为 '<ISO时间> <级别> <主机> <模块> ...'")
+        raise ValueError("前缀不符：应为 '<ISO时间> <级别> <主机> <模块> <事件> ...'")
 
     fields = m.groupdict()
     rest: str = fields.pop("rest")
@@ -38,40 +39,66 @@ def _split(line: str) -> dict[str, str]:
     return {**fields, **kv, "message": message}
 
 
-def parse_line(raw: RawLine) -> LogEntry | None:
-    """一行 → LogEntry；格式错或校验不过返回 None。
+def parse_line(raw: RawLine) -> LogEntry | ParseIssue:
+    """一行 → LogEntry 或结构化错误。
 
-    v0 先跳过坏行（D3 再谈参数校验与错误处理）。
+    分流：调用方错误（lineno<1 / text 非 str）直接 raise；
+          数据错误（格式、字段非法）返回 ParseIssue，交给调用方跳过或回填。
     """
+    if raw.lineno < 1:
+        raise ValueError("lineno 必须 >= 1（调用方错误，快速失败）")
+    if not isinstance(raw.text, str):
+        raise TypeError("text 必须是 str（调用方错误，快速失败）")
+
     try:
         return LogEntry.model_validate(_split(raw.text))
     except ValidationError as e:
-        # 校验没过：e.errors() 指出哪个字段、违反哪条规则
-        print(f"第 {raw.lineno} 行校验失败:", e.errors())
-        return None
+        # e.errors() 指出哪个字段、违反哪条规则 → 压成一条可机读的错误
+        first = e.errors()[0]
+        loc = ".".join(str(part) for part in first["loc"])
+        return ParseIssue(
+            lineno=raw.lineno,
+            kind="VALIDATION",
+            field=loc,
+            message=str(first["msg"]),
+            raw=raw.text,
+        )
     except ValueError as e:
-        # 正则切分没过：连前缀格式都不对
-        print(f"第 {raw.lineno} 行格式不符:", e)
-        return None
+        return ParseIssue(
+            lineno=raw.lineno, kind="FORMAT", message=str(e), raw=raw.text
+        )
 
 
-def parse_file(path: str | Path) -> tuple[list[dict[str, object]], ParseStats]:
-    """读日志文件 → (结构化 dict 列表, 统计)。这是 D2 的验收产出。"""
+def _validate_path(path: str | Path) -> Path:
+    """函数入口的参数校验：这类是调用方 bug，不吞、不转成 issue。"""
+    if not isinstance(path, (str, Path)):
+        raise TypeError(f"path 必须是 str 或 Path，实际是 {type(path).__name__}")
+    p = Path(path)
+    if not p.exists():
+        raise FileNotFoundError(f"日志文件不存在: {p}")
+    if not p.is_file():
+        raise ValueError(f"路径不是文件: {p}")
+    return p
+
+
+def parse_file(path: str | Path) -> ParseResult:
+    """读日志文件 → ParseResult（entries + stats + issues）。"""
+    p = _validate_path(path)
     stats = ParseStats()
     entries: list[dict[str, object]] = []
+    issues: list[ParseIssue] = []
 
-    for lineno, text in enumerate(
-        Path(path).read_text(encoding="utf-8").splitlines(), start=1
-    ):
+    for lineno, text in enumerate(p.read_text(encoding="utf-8").splitlines(), start=1):
         if not text.strip():
             continue
         stats.total += 1
-        entry = parse_line(RawLine(lineno=lineno, text=text))
-        if entry is None:
+        outcome = parse_line(RawLine(lineno=lineno, text=text))
+        if isinstance(outcome, ParseIssue):
             stats.skipped += 1
+            issues.append(outcome)
             continue
         stats.ok += 1
         # mode="json" 把 datetime 转成 ISO 字符串，得到可直接 json.dumps 的 dict
-        entries.append(entry.model_dump(mode="json"))
+        entries.append(outcome.model_dump(mode="json"))
 
-    return entries, stats
+    return ParseResult(entries=entries, stats=stats, issues=issues)
