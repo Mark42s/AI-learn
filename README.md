@@ -50,6 +50,6 @@ uv run python -m log_analyzer.async_probe <url...> # 自定义 URL，输出结�
 uv run pytest -q                                 # 13 passed
 ```
 
-`async_probe.py`：`asyncio.gather` + `Semaphore(10)` + `httpx.AsyncClient`，单个请求失败兜成结构化 `ProbeItem`（延续 D3 的分流）。内置的本地延迟服务（每请求 200ms）让对照可复现且**全程离线**。
+`async_probe.py`：`asyncio.gather` + `Semaphore(10)` + `httpx.AsyncClient`，单个请求失败兜成结构化 `ProbeItem`（延续 D3 的分流）。内置的本地延迟服务（每请求 200ms）让延迟可控、对照可复现、零外部依赖；需要时用自定义 URL 模式换公网端点即可。
 
 实测：串行 **2212.7ms** / 并发 **245.6ms** / 加速比 **9.01×**。讲义 `F:\dev\outputs\D4-异步基础-对着epoll讲.md`，全局进度快照 `F:\dev\outputs\学习计划进度快照.md`。
