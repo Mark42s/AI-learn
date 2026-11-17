@@ -5,15 +5,26 @@ context: |
   All artifacts must be written in 中文（简体）.
   Keep OpenSpec structural headings and SHALL/MUST keywords in English.
 
+  代码规范（生成 tasks、实现代码时 MUST 遵守）：
+  - 边界原则：外部数据（日志文本、模型输出、HTTP 响应）进入系统时必须过 pydantic 校验；
+    内部中间结果用 dataclass 即可。
+  - 不可变优先：只读数据结构用 @dataclass(frozen=True, slots=True)，需要累加的才去掉 frozen。
+  - 错误三层分流：调用方错误（参数类型/路径非法）直接 raise 快速失败；
+    数据错误返回结构化对象（ParseIssue / ProbeItem），不吞、不中断批次；
+    IO 与 CLI 层负责翻译成可读说明并给出非零退出码。
+  - 每个模块开头写 `from __future__ import annotations`，函数与方法带完整类型注解。
+  - 对外输出必须是 JSON 可序列化结构，用 model_dump(mode="json") 或显式的 to_dict()。
+  - 注释与 docstring 用中文，标识符用英文；注释只解释「为什么」，不复述代码在做什么。
+  - 新增可观察行为必须有 pytest 测试覆盖，测试文件放 tests/test_*.py。
+
 # Per-artifact rules (optional)
 # Add custom rules for specific artifacts.
-# Example:
-#   rules:
-#     proposal:
-#       - Keep proposals under 500 words
-#       - Always include a "Non-goals" section
-#     tasks:
-#       - Break tasks into chunks of max 2 hours
+rules:
+  specs:
+    - 场景 MUST 描述可观察行为，不出现内部类名或函数名
+    - 每条 Requirement MUST 至少有一个 Scenario
+  tasks:
+    - 每个任务 MUST 写明验证方式（可执行命令或可观察断言）
 
 # Per-operation guidance (optional)
 # Add advisory guidance for how apply and archive work should be conducted.

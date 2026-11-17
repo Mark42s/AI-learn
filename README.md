@@ -39,3 +39,17 @@ uv run python -m log_analyzer nope.log      # 参数错误 → exit 2
 三层分流：**调用方错误 → raise 快速失败｜数据错误 → ParseIssue｜IO 错误 → CLI 翻译**。
 
 `tests/test_parser.py` 的 10 个单测覆盖正常路径、类型转换、两类错误与端到端计数，用到了 `pytest.raises`、`@pytest.fixture` 和内置 `tmp_path`。讲义见 `F:\dev\outputs\D3-质量习惯与pytest.md`。
+
+---
+
+## D4：异步基础（对着 epoll 讲）
+
+```powershell
+uv run python -m log_analyzer.async_probe         # 串行 vs 并发对照
+uv run python -m log_analyzer.async_probe <url...> # 自定义 URL，输出结构化 JSON
+uv run pytest -q                                 # 13 passed
+```
+
+`async_probe.py`：`asyncio.gather` + `Semaphore(10)` + `httpx.AsyncClient`，单个请求失败兜成结构化 `ProbeItem`（延续 D3 的分流）。内置的本地延迟服务（每请求 200ms）让对照可复现且**全程离线**。
+
+实测：串行 **2212.7ms** / 并发 **245.6ms** / 加速比 **9.01×**。讲义 `F:\dev\outputs\D4-异步基础-对着epoll讲.md`，全局进度快照 `F:\dev\outputs\学习计划进度快照.md`。
